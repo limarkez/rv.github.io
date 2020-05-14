@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html>
+    <head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/2.6.2/phaser.js"></script>
+</head>
+<BODY>
+<script>
+
+var game = new Phaser.Game(1920, 1080, Phaser.CANVAS, 'Juego', { preload: preload, create: create, update: update, render: render });
+
+
+function preload() {
+
+    game.load.tilemap('map', 'assets/level.csv', null, Phaser.Tilemap.CSV);
+    game.load.image('tiles', 'assets/base.png');
+    game.load.image('bullet', 'assets/bullet2.png');
+    game.load.spritesheet('player', 'sprites/cucarachin.png', 70, 110);
+    game.load.spritesheet('enemigo', 'sprites/enemigo.png', 420, 1000);
+    game.load.image('enemy', 'sprites/en.png');
+    game.load.image('die', 'sprites/die.png');
+    game.load.image('die2', 'sprites/die2.png');
+    game.load.spritesheet('die3', 'sprites/die3.png' , 210, 400);
+    game.load.spritesheet('die4', 'sprites/die4.png' ,70, 110);
+    game.load.image('bonus', 'assets/semilla.png');
+    game.load.image('agua1', 'assets/agua1.png');
+    game.load.image('agua2', 'assets/agua2.png');
+    game.load.image('flota', 'assets/flota.png');
+    game.load.spritesheet('llave', 'sprites/llave.png', 142, 141);
+    game.load.spritesheet('palanca', 'sprites/palanca.png', 130, 141);
+    game.load.spritesheet('licuadora', 'sprites/licuar.png', 210, 400);
+    game.load.spritesheet('fuego', 'sprites/fuego.png', 1540, 280);
+    game.load.spritesheet('chorro', 'sprites/agua.png', 70, 385);
+    game.load.spritesheet('alert', 'sprites/alert.png', 210, 92);
+    game.load.image('tapa', 'sprites/tapa.png');
+    game.load.image('ollas', 'sprites/ollas.png');
+    game.load.image('tubo', 'sprites/tubo.png');
+    game.load.image('background', 'assets/tile_bg.jpg');
+    game.load.audio('blender', 'assets/blender.mp3');
+    game.load.audio('bug', 'assets/bug.mp3');    
+}
+
+var player;
+var enemigo;
+var enemy;
+var facing = 'right';
+var cursors;
+var jumpButton;
+var jumpTimer = 0;
+var bulletTime = 0;
+var bullet;
+var bg;
+var map;
+var layer;
+var hand='arriba';
+var playerx;
+var gameovertext;
+var finaltext;
+var text1;
+var text2;
+var vel_hand=1300;
+var llave;
+var palanca;
+var licuadora;
+var fuego;
+var chorro;
+var alert;
+var tapa;
+var ollas;
+var tubo;
+var blender;
+var bug;
+var cont=0;
+var cont2=0;
+var disparos=15;
+
+
+function create() {
+
+    game.physics.startSystem(Phaser.Physics.ARCADE);
+    bg = game.add.tileSprite(0, 0, 1920, 1080, 'background');
+    bg.fixedToCamera = true;
+
+    //map
+    map = game.add.tilemap('map', 70, 70);
+    map.addTilesetImage('tiles');
+    layer = map.createLayer(0);
+    layer.resizeWorld();
+    map.setCollisionBetween(0, 30);
+    map.setCollisionBetween(32, 144);
+    map.setCollisionBetween(187, 204);
+    map.setCollisionBetween(208, 229);
+    map.setCollisionBetween(233, 254);
+    map.setCollisionBetween(258, 278);
+    map.setCollisionBetween(283, 303);
+    map.setCollisionBetween(305, 500);
+
+    bonus = game.add.group();
+    bonus.enableBody=true;
+
+    map.createFromTiles(31,30,'bonus', layer, bonus);
+
+    agua = game.add.group();
+    agua.enableBody=true;
+
+    map.createFromTiles(170,170,'agua1', layer, agua);
+    map.createFromTiles(171,171,'agua2', layer, agua);
+
+    flota = game.add.group();
+    flota.enableBody=true;
+
+
+    //text
+    gameovertext = game.add.text(700, 400, 'GAME OVER', { fontSize: '70px', fill: '#000', boundsAlignH: "center", boundsAlignV: "middle" });
+    gameovertext.fixedToCamera=true;
+    gameovertext.visible=false;
+
+    finaltext = game.add.text(400, 400, '- Felicidades, has huido con honor -', { fontSize: '70px', fill: '#000', boundsAlignH: "center", boundsAlignV: "middle" });
+    finaltext.fixedToCamera=true;
+    finaltext.visible=false;
+
+    text1 = game.add.text(70, 2300, '!HUYE¡', { fontSize: '70px', fill: '#000', boundsAlignH: "center", boundsAlignV: "middle" });
+    text2 = game.add.text(50, 70, 'Semillas:0', { fontSize: '45px', fill: '#000', boundsAlignH: "center", boundsAlignV: "middle" });
+    text2.fixedToCamera=true;
+   
+
+
+    //Player
+    player = game.add.sprite(140, 2570, 'player');
+    game.physics.enable(player, Phaser.Physics.ARCADE);
+    player.body.gravity.y = 450;
+    player.body.bounce.y = 0.2;
+    player.body.collideWorldBounds = true;
+    player.body.setSize(58, 87, 5, 16);
+    player.name='player';
+
+    player.animations.add('left', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], 35, true);
+    player.animations.add('turn', [32,33,34], 3, true);
+    player.animations.add('right', [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30], 35, true);
+    player.animations.add('idle_izq', [32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47], 12, true);
+    player.animations.add('idle_der', [48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63], 12, true);
+
+    game.camera.follow(player);
+    playerx = player.x;
+
+    //Enemigo
+    enemigo = game.add.sprite(20, 1000, 'enemigo');
+    game.physics.enable(enemigo, Phaser.Physics.ARCADE);
+    enemigo.animations.add('abajo', [0, 1, 2, 3, 4], 11, true);
+    enemigo.animations.add('arriba', [ 2], 7, true);
+
+    enemy = game.add.sprite(50, 0, 'enemy');
+    game.physics.enable(enemy, Phaser.Physics.ARCADE);
+    enemy.body.setSize(240, 90, 65, 0);
+    player.body.collideWorldBounds = true;
+    enemy.name='enemy';
+
+    //llave
+    llave = game.add.sprite(3815, 2380, 'llave');
+    game.physics.enable(llave, Phaser.Physics.ARCADE);
+    llave.animations.add('abrir', [0, 1, 2, 3, 4, 5], 11, true); 
+
+    //Palanca
+    palanca = game.add.sprite(13000, 1500, 'palanca');
+    game.physics.enable(palanca, Phaser.Physics.ARCADE);
+    palanca.animations.add('abrir', [0, 1, 2, 3, 4, 5], 11, true); 
+
+    //Licuadora
+    licuadora = game.add.sprite(8470, 2270, 'licuadora');
+    game.physics.enable(licuadora, Phaser.Physics.ARCADE);
+    licuadora.animations.add('on', [0, 1, 2, 3], 11, true);
+    licuadora.body.immovable=true;
+
+    tapa = game.add.sprite(8470, 2270, 'tapa');
+    game.physics.enable(tapa, Phaser.Physics.ARCADE);
+    tapa.body.setSize(160, 30, 15, -10);
+    tapa.name='tapa';
+
+    //fuego
+    fuego = game.add.sprite(12327, 2300, 'fuego');
+    game.physics.enable(fuego, Phaser.Physics.ARCADE);
+    fuego.animations.add('fire', [0, 1, 2, 3, 4], 13, true);
+
+    ollas = game.add.sprite(12327, 2000, 'ollas');
+    game.physics.enable(ollas, Phaser.Physics.ARCADE);
+    ollas.body.setSize(1550, 600, 0, 0);
+    ollas.name='ollas';
+
+    tubo = game.add.sprite(15960, 2380, 'tubo');
+    game.physics.enable(tubo, Phaser.Physics.ARCADE);
+    tubo.body.setSize(30, 70, 55, 5);
+    tubo.name='tubo';
+
+    //Chorro
+    chorro = game.add.sprite(4340, 2345, 'chorro');
+    game.physics.enable(chorro, Phaser.Physics.ARCADE);
+    chorro.animations.add('abrir', [0, 1], 13, true);
+    chorro.kill();
+
+    //alert
+    alert = game.add.sprite(50, 150, 'alert');
+    alert.fixedToCamera=true;
+    alert.kill();
+
+    //sound
+     blender = game.add.audio('blender');
+     bug = game.add.audio('bug');
+
+    bullets = game.add.group();
+    bullets.enableBody = true;
+    bullets.physicsBodyType = Phaser.Physics.ARCADE;
+
+
+    for (var i = 0; i < 10; i++)
+    {
+        var b = bullets.create(0, 0, 'bullet');
+        b.name = 'bullet' + i;
+        b.exists = false;
+        b.visible = false;
+        b.checkWorldBounds = true;
+        b.events.onOutOfBounds.add(resetBullet, this);
+    }
+
+    cursors = game.input.keyboard.createCursorKeys();
+    jumpButton = game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
+
+}
+
+function update () {
+
+    game.physics.arcade.collide(player, [layer, licuadora]);
+    game.physics.arcade.overlap(player, enemy, muerte, null, this);
+    game.physics.arcade.overlap(player, agua, muerte2, null, this);
+    game.physics.arcade.overlap(player, tapa, muerte3, null, this);
+    game.physics.arcade.overlap(player, ollas, muerte4, null, this);
+    game.physics.arcade.overlap(player, tubo, huir, null, this);
+    game.physics.arcade.overlap(player, bonus, recolectar, null, this);
+    game.physics.arcade.overlap(bullets, llave, colisionllave, null, this);
+    game.physics.arcade.overlap(bullets, palanca, colisionllave2, null, this);
+    game.physics.arcade.overlap(bullets, licuadora, colisionlicuadora, null,
+     this);
+    player.body.velocity.x = 0;
+
+    //Perseguir
+
+    if(player.position.x>3500 && player.position.x<5500 ){
+        
+        manotear(player);
+
+    }else if(player.position.x>8260 && player.position.x<10000 ){
+       
+       manotear(player);
+
+    }else if(player.position.x>12100 && player.position.x<14300){
+
+        manotear(player);
+
+    }else{
+
+       enemy.kill();
+       enemigo.kill();
+       alert.kill(); 
+    }
+
+    if (cursors.left.isDown)
+    {
+        player.body.velocity.x = -300;
+
+        if (facing != 'left')
+        {
+            player.animations.play('left');
+            facing = 'left';
+        }   
+    }
+    else if (cursors.right.isDown)
+    {
+        player.body.velocity.x = 300;
+
+        if (facing != 'right')
+        {
+            player.animations.play('right');
+            facing = 'right';
+        }
+    }
+    else
+    {
+        if (facing != 'idle')
+        {
+            player.animations.stop();
+
+            if (facing == 'left')
+            {
+                player.animations.play('idle_izq')
+            }
+            else
+            {
+                player.animations.play('idle_der')
+            }
+
+            facing = 'idle';
+        }
+    }
+       
+    if (cursors.up.isDown && player.body.onFloor()  && game.time.now > jumpTimer )
+    {
+        player.body.velocity.y = -500;
+        jumpTimer = game.time.now + 750;
+    }
+
+    if (jumpButton.isDown )
+    {
+        fireBullet();
+    }
+
+
+}
+
+function manotear (punto) {
+ 
+enemy.body.velocity.y=vel_hand;
+enemy.position.x= playerx;
+enemy.revive();
+enemigo.revive();
+enemigo.y=enemy.y-900;
+enemigo.x=enemy.x;
+alert.revive();
+
+if (enemy.position.y > player.y-35) {
+    enemigo.frame=4;
+    if(hand!='abajo'){
+      vel_hand=-1300
+      hand='abajo'; 
+    }
+  
+} else if (enemy.position.y< player.y-1000) {
+    enemigo.animations.play('arriba');
+    if(hand!='arriba'){
+      vel_hand= 1300
+      hand='arriba';
+      playerx=punto.x-100+game.rnd.realInRange(500, -500);  
+      enemigo.frame=4;
+    }
+  
+} 
+
+}
+
+
+function muerte (obj1, obj2) {
+
+   //game.physics.arcade.isPaused=true;
+   player.loadTexture('die',0);
+   player.body.setSize(240, 50, 0, 0);
+   gameovertext.visible=true;
+   game.input.enabled = false;
+   enemigo.animations.play('arriba');
+   bug.play();
+}
+
+function muerte2 (obj1, obj2) {
+
+   //game.physics.arcade.isPaused=true;
+   player.loadTexture('die2',0);
+   player.body.setSize(110, 60, 0, 0);
+   gameovertext.visible=true;
+   game.input.enabled = false;
+   enemigo.animations.play('arriba');
+}
+
+function muerte3 (obj1, obj2) {
+
+   //game.physics.arcade.isPaused=true;
+   licuadora.loadTexture('die3',0);
+   licuadora.animations.add('die');
+   licuadora.animations.play('die', 13, true);
+   player.kill();
+   gameovertext.visible=true;
+   game.input.enabled = false;
+   enemigo.animations.play('arriba');
+   blender.play();
+}
+
+function muerte4 (obj1, obj2) {
+
+   //game.physics.arcade.isPaused=true;
+   player.loadTexture('die4',0);
+   player.animations.add('quemar');
+   player.animations.play('quemar', 10, true);
+   gameovertext.visible=true;
+   game.input.enabled = false;
+   enemigo.animations.play('arriba');
+}
+
+function huir (obj1, obj2) {
+
+   player.kill();
+   finaltext.visible=true;
+   game.input.enabled = false;
+   enemigo.animations.play('arriba');
+}
+
+function recolectar (obj1, obj2) {
+
+ obj2.kill();
+
+ disparos=disparos-1;
+ cont2=15-disparos;
+ updateText(cont2);
+}
+
+function colisionllave (sprite, bullet) {
+
+    bullet.kill();
+    cont=cont+1;
+    sprite.frame=cont;
+
+if(cont>4){
+    logro1();
+    cont=0; 
+
+}
+if(cont==1){
+  chorro.kill(); 
+}
+
+}
+
+function colisionllave2 (sprite, bullet) {
+
+    bullet.kill();
+    cont=cont+1;
+    sprite.frame=cont;
+
+if(cont>2){
+    fuego.kill();
+    ollas.kill();
+}
+
+}
+
+
+function colisionlicuadora(sprite, bullet) {
+
+    bullet.kill();
+    licuadora.animations.stop();
+    tapa.kill();
+    fuego.animations.play('fire');
+}
+
+function fireBullet () {
+
+if(disparos<15){
+    if (game.time.now > bulletTime)
+    {
+        bullet = bullets.getFirstExists(false);
+
+        if (bullet)
+        {
+            bullet.reset(player.x + 40, player.y +20 );
+            bullet.body.velocity.x = 300;
+            //bullet.body.velocity.y = -20;
+            bullet.rotation += game.time.now;
+            bulletTime = game.time.now + 150;
+            disparos=disparos+1;
+            cont2=15-disparos;
+            updateText(cont2);
+        }
+    }
+}
+}
+
+
+function resetBullet (bullet) {
+
+    bullet.kill();
+}
+
+function logro1 () {
+
+map.createFromTiles(145,96,'flota', layer, flota);
+map.setCollisionBetween(95, 96);
+licuadora.animations.play('on');
+chorro.revive();
+chorro.animations.play('abrir');
+    
+}
+
+function updateText(num) {
+
+
+    text2.setText("Semillas: " + num);
+
+}
+
+function render () {
+/*ame.debug.body(enemy);
+ game.debug.body(player);
+ game.debug.body(enemigo);*/
+ //game.debug.body(tapa);
+ //game.debug.body(ollas);
+ //game.debug.body(tubo);
+
+}
+</script>
+
+</BODY>
+
+</html>

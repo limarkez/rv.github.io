@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+	<title>Test AR</title>
+	<!-- include three.js library -->
+	<script src='js/three.js'></script>
+	<script src="js/GLTFLoader.js"></script>
+	<script src="js/DRACOLoader.js"></script>
+
+	<!-- include jsartookit -->
+	<script src="js/artoolkit.min.js"></script>
+	<script src="js/artoolkit.api.js"></script>
+	<!-- include threex.artoolkit -->
+	<script src="js/threex-artoolkitsource.js"></script>
+	<script src="js/threex-artoolkitcontext.js"></script>
+	<script src="js/threex-arbasecontrols.js"></script>
+	<script src="js/threex-armarkercontrols.js"></script>
+</head>
+
+<body style='margin : 0px; overflow: hidden; font-family: Monospace;'>
+
+<!-- 
+  Example created by Lee Stemkoski: https://github.com/stemkoski
+  Based on the AR.js library and examples created by Jerome Etienne: https://github.com/jeromeetienne/AR.js/
+-->
+
+<script>
+
+var scene, camera, renderer, clock, deltaTime, totalTime, mixer1, mixer2;
+
+var arToolkitSource, arToolkitContext;
+
+var markerRoot1, markerRoot2 ;
+
+var mesh1, mesh2;
+
+initialize();
+animate();
+
+function initialize() {
+
+	scene = new THREE.Scene();
+
+	let ambientLight = new THREE.AmbientLight( 0x999997, 2);
+	scene.add( ambientLight );
+
+
+    var dirLight = new THREE.DirectionalLight( 0xa1a1a1 );
+    dirLight.position.set( - 3, 10, - 10 );      
+    scene.add( dirLight );
+				
+	camera = new THREE.Camera();
+	scene.add(camera);
+
+	renderer = new THREE.WebGLRenderer({
+		antialias : true,
+		alpha: true
+	});
+	renderer.setClearColor(new THREE.Color('lightgrey'), 0)
+	renderer.setSize( 1600, 1200 );
+	renderer.domElement.style.position = 'absolute'
+	renderer.domElement.style.top = '0px'
+	renderer.domElement.style.left = '0px'
+
+	renderer.gammaOutput = true;
+    renderer.gammaFactor = 2.1;
+    renderer.shadowMapEnabled = true;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.gammaInput = true;
+	document.body.appendChild( renderer.domElement );
+
+
+	clock = new THREE.Clock();
+	deltaTime = 0;
+	totalTime = 0;
+	
+	////////////////////////////////////////////////////////////
+	// setup arToolkitSource
+	////////////////////////////////////////////////////////////
+
+	arToolkitSource = new THREEx.ArToolkitSource({
+		sourceType : 'webcam',
+	});
+
+	function onResize()
+	{
+		arToolkitSource.onResize()	
+		arToolkitSource.copySizeTo(renderer.domElement)	
+		if ( arToolkitContext.arController !== null )
+		{
+			arToolkitSource.copySizeTo(arToolkitContext.arController.canvas)	
+		}	
+	}
+
+	arToolkitSource.init(function onReady(){
+		onResize()
+	});
+	
+	// handle resize event
+	window.addEventListener('resize', function(){
+		onResize()
+	});
+	
+	////////////////////////////////////////////////////////////
+	// setup arToolkitContext
+	////////////////////////////////////////////////////////////	
+
+	// create atToolkitContext
+	arToolkitContext = new THREEx.ArToolkitContext({
+		cameraParametersUrl: 'data/camera_para.dat',
+		detectionMode: 'mono'
+	});
+	
+	// copy projection matrix to camera when initialization complete
+	arToolkitContext.init( function onCompleted(){
+		camera.projectionMatrix.copy( arToolkitContext.getProjectionMatrix() );
+	});
+
+	////////////////////////////////////////////////////////////
+	// setup markerRoots
+	////////////////////////////////////////////////////////////
+
+	// build markerControls
+	markerRoot1 = new THREE.Group();
+	scene.add(markerRoot1);
+	let markerControls1 = new THREEx.ArMarkerControls(arToolkitContext, markerRoot1, {
+		type: 'pattern', patternUrl: "data/walk.patt",
+	})
+
+	markerRoot2 = new THREE.Group();
+	scene.add(markerRoot2);
+	let markerControls2 = new THREEx.ArMarkerControls(arToolkitContext, markerRoot2, {
+		type: 'pattern', patternUrl: "data/idle.patt",
+	})
+
+	let geometry1 = new THREE.PlaneBufferGeometry(1,1, 4,4);
+
+	//let loader = new THREE.TextureLoader();
+	// let texture = loader.load( 'images/earth.jpg', render );
+	let material1 = new THREE.MeshBasicMaterial( { color: 0x09782A, opacity: 0.1 } );
+	mesh1 = new THREE.Mesh( geometry1, material1 );
+	mesh1.rotation.x = -Math.PI/2;
+	mesh2 = new THREE.Mesh( geometry1, material1 );
+	mesh2.rotation.x = -Math.PI/2;
+	markerRoot1.add( mesh1 );
+	markerRoot2.add( mesh2 );
+	
+	function onProgress(xhr) { console.log( (xhr.loaded / xhr.total * 100) + '% loaded' ); }
+	function onError(xhr) { console.log( 'An error happened' ); }
+	
+	
+         THREE.DRACOLoader.setDecoderPath( 'js/gltf/' );
+         var loader = new THREE.GLTFLoader();
+         loader.setDRACOLoader( new THREE.DRACOLoader() );
+         loader.load( 'modelos/soldier.glb', function ( gltf ) {
+
+                model = gltf.scene;
+                model.rotation.y= 3.14159;
+                model.position.y = 0;
+                model.scale.set( 1, 1, 1 );
+                markerRoot1.add(model);
+                mixer1 = new THREE.AnimationMixer( model );
+                mixer1.clipAction( gltf.animations[ 3 ] ).play();
+                model.traverse( function ( child ) {
+
+                    if ( child.isMesh ) child.castShadow = true;
+                } );
+                animate();
+            });
+
+
+         THREE.DRACOLoader.setDecoderPath( 'js/gltf/' );
+         var loader = new THREE.GLTFLoader();
+         loader.setDRACOLoader( new THREE.DRACOLoader() );
+         loader.load( 'modelos/soldier.glb', function ( gltf ) {
+
+                model = gltf.scene;
+                model.rotation.y= 3.14159;
+                model.position.y = 0;
+                model.scale.set( 1, 1, 1 );
+                markerRoot2.add(model);
+                mixer2 = new THREE.AnimationMixer( model );
+                mixer2.clipAction( gltf.animations[ 0 ] ).play();
+                model.traverse( function ( child ) {
+
+                    if ( child.isMesh ) child.castShadow = true;
+                } );
+                animate();
+            });
+
+}
+
+
+function update()
+{
+	// update artoolkit on every frame
+	if ( arToolkitSource.ready !== false )
+		arToolkitContext.update( arToolkitSource.domElement );
+}
+
+
+function render()
+{
+	renderer.render( scene, camera );
+}
+
+
+function animate()
+{
+	requestAnimationFrame(animate);
+	deltaTime = clock.getDelta();
+	totalTime += deltaTime;
+                if ( mixer1 ) {
+
+                    mixer1.update( deltaTime );
+                }
+
+                if ( mixer2 ) {
+
+                    mixer2.update( deltaTime );
+                }
+	update();
+	render();
+}
+
+</script>
+
+</body>
+</html>
